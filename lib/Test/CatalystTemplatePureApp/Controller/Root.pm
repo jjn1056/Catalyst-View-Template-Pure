@@ -20,5 +20,4 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
       ->http_ok;
   }
 
-__PACKAGE__->config(namespace => '');
 __PACKAGE__->meta->make_immutable;
