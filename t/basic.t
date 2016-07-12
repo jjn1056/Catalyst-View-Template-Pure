@@ -3,7 +3,7 @@ use Catalyst::Test 'Test::CatalystTemplatePureApp';
 
 use Devel::Dwarn;
 
-Dwarn request '/ttt';
+Dwarn request '/';
 
 ok 1;
 

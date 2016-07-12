@@ -10,14 +10,14 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
   my ($self, $c) = @_;
 }
 
-  sub ttt :Chained(root) Args(0)
+  sub summary_list :Chained(root) PathPart('') Args(0)
   {
     my ($self, $c) = @_;
-    $c->view('TicTacToe',
-      title=>'Hello World')
-      ->http_ok
-      ->{ctx}
-      ->detach;
+    $c->view('SummaryList',
+        items=>[qw/aaa bbb ccc/])
+      ->apply_view('CommonHead',
+        title => 'My Todo List')
+      ->http_ok;
   }
 
 __PACKAGE__->config(namespace => '');

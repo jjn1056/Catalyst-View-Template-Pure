@@ -3,6 +3,7 @@ use warnings;
 
 package Catalyst::View::Template::Pure;
 
+use Catalyst::View::Template::Pure::Response;
 use Scalar::Util qw/blessed refaddr/;
 use Catalyst::Utils;
 use HTTP::Status;
@@ -34,6 +35,8 @@ sub ACCEPT_CONTEXT {
   my ($self, $c, %args) = @_;
   my $args = $self->merge_config_hashes($self->config, \%args);
 
+  $c->stats->profile(begin => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
+  
   $self->handle_request($c, %$args) if $self->can('handle_request');
 
   my $template;
@@ -85,8 +88,11 @@ sub ACCEPT_CONTEXT {
   }
 }
 
-sub ctx { return shift->{ctx} }
-  
+sub apply_view {
+  my ($self, $view, %args) = (@_, template => $_[0]->render);
+  return $self->{ctx}->view($view, %args)
+}
+
 sub response {
   my ($self, $status, @proto) = @_;
 
@@ -104,6 +110,8 @@ sub response {
   $res->status($status) unless $res->status != 200;
   $res->content_type('text/html') unless $res->content_type;
   my $body = $res->body($self->render);
+
+  $self->{ctx}->stats->profile(begin => "=> Response". ($status ? "($status)": ''));
 
   return bless +{
     ctx => $self->{ctx},
@@ -141,6 +149,7 @@ sub Views {
 # a subclass just for components
 sub style_fragment { shift->{pure}->style_fragment }
 sub script_fragment { shift->{pure}->script_fragment }
+sub ctx { return shift->{ctx} }
 
 1;
 
