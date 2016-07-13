@@ -6,7 +6,7 @@ package Catalyst::View::Template::Pure;
 use Catalyst::View::Template::Pure::Response;
 use Scalar::Util qw/blessed refaddr/;
 use Catalyst::Utils;
-use HTTP::Status;
+use HTTP::Status ();
 
 use base 'Catalyst::View';
 

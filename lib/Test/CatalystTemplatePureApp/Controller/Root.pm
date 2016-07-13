@@ -14,7 +14,6 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
   {
     my ($self, $c) = @_;
     $c->view('SummaryList',
-        errors => $c->model('Form::Todo'),
         items => $c->model('Schema::Todo'))
       ->apply_view('CommonHead',
         title => 'My Todo List')
@@ -26,6 +25,7 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
     my ($self, $c) = @_;
     my $form = $c->model('Form::Todo',
       $c->model('Schema::Todo::Result'));
+    $c->stash(errors => $form->errors_by_name);
     $c->detach('summary_list');
   }
 

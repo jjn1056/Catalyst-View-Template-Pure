@@ -5,6 +5,7 @@ use HTTP::Status qw(:constants);
 
 extends 'Catalyst::View::Template::Pure';
 
+has 'errors' => (is=>'ro');
 has 'items' => (
   is=>'ro',
   isa=>'Object',
@@ -17,8 +18,6 @@ __PACKAGE__->config(
   template => qq[
     <html>
       <head>
-        <script src="https://cdn.jsdelivr.net/semantic-ui/2.2.2/semantic.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/semantic-ui/2.2.2/semantic.min.css">
         <title>TITLE</title>
       </head>
       <body>
@@ -26,17 +25,10 @@ __PACKAGE__->config(
         <ol>
           <li class='item'>No items in list</li>
         </ol>
-        <form class='ui form' method='post'>
-          <div class="ui form">
-            <div class="field">
-              <label>Title</label>
-              <input type="title" placeholder="New Todo Item...">
-            </div>
-            <div class="ui error message">
-              <p>eorr.</p>
-            </div>
-            <div class="ui submit button">Submit</div>
-          </div>
+        <form method='post'>
+          <label>Title</label>
+          <input type="text" name="title" placeholder="New Todo Item..." />
+          <button>Submit</button>
         </form>
       </body>
     </html>
@@ -48,9 +40,11 @@ __PACKAGE__->config(
       ],
     },
     '#now' => 'timestamp',
-    'input[name="title"]+' => sub {
-      return 'ddd';
-    }
+    'input[name="title"]+' => {
+      'err<-maybe:errors.title' => [
+        '.' => '<p>={err}</p> | encoded_string',
+      ],
+    },
   ],
 );
 
