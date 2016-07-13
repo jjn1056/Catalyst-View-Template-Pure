@@ -15,6 +15,7 @@ our $VERSION = '0.001';
 sub COMPONENT {
   my ($class, $app, $args) = @_;
   $args = $class->merge_config_hashes($class->config, $args);
+  $args = $class->modify_init_args($args) if $class->can('modify_init_args');
   $class->on_init($app, $args) if $class->can('on_init');
   $class->inject_http_status_helpers($args);
   return bless $args, $class;
@@ -30,13 +31,13 @@ sub inject_http_status_helpers {
   }
 }
 
-
 sub ACCEPT_CONTEXT {
   my ($self, $c, %args) = @_;
   my $args = $self->merge_config_hashes($self->config, \%args);
 
   $c->stats->profile(begin => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
-  
+
+  $args = $self->modify_context_args($args) if $self->can('modify_context_args');
   $self->handle_request($c, %$args) if $self->can('handle_request');
 
   my $template;
@@ -153,3 +154,31 @@ sub ctx { return shift->{ctx} }
 
 1;
 
+=head1 TITLE
+
+Catalyst::View::Template::Pure - Catalyst view adaptor for Template::Pure
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+=head1 METHODS
+
+This class defines the following methods.
+
+=head1 ALSO SEE
+
+L<Catalyst>, L<Template::Pure>
+
+=head1 AUTHORS & COPYRIGHT
+
+John Napiorkowski L<email:jjnapiork@cpan.org>
+
+=head1 LICENSE
+
+Copyright 2016, John Napiorkowski  L<email:jjnapiork@cpan.org>
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
