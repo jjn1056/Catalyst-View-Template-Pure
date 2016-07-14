@@ -8,18 +8,11 @@ extends 'Catalyst::View::Template::Pure';
 has 'errors' => (is=>'ro', isa=>'HashRef', required=>1);
 
 __PACKAGE__->config(
-  template => q[
-    <div>
-      <ol>
-        <li>ERR</li>
-      </ol>
-    </div>
-  ],
-  
+  returns_status => [HTTP_BAD_REQUEST],
   directives => [
-    'li' => {
-      'err<-errors' => [
-        '.' => 'err',
+    'input[name="title"]+' => {
+      'err<-errors.optional:title' => [
+        '.' => '<p>={err}</p> | encoded_string',
       ],
     },
   ],

@@ -5,7 +5,6 @@ use HTTP::Status qw(:constants);
 
 extends 'Catalyst::View::Template::Pure';
 
-has 'errors' => (is=>'ro');
 has 'items' => (
   is=>'ro',
   isa=>'Object',
@@ -40,11 +39,6 @@ __PACKAGE__->config(
       ],
     },
     '#now' => 'timestamp',
-    'input[name="title"]+' => {
-      'err<-maybe:errors.title' => [
-        '.' => '<p>={err}</p> | encoded_string',
-      ],
-    },
   ],
 );
 

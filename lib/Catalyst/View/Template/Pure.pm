@@ -91,7 +91,7 @@ sub ACCEPT_CONTEXT {
 
 sub apply_view {
   my ($self, $view, %args) = (@_, template => $_[0]->render);
-  return $self->{ctx}->view($view, %args)
+  return $self->{ctx}->view($view, %{$self->{ctx}->stash},%args)
 }
 
 sub response {
