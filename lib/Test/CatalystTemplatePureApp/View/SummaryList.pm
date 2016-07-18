@@ -12,12 +12,21 @@ has 'items' => (
 
 sub timestamp { localtime }
 
+sub include {
+  my $self = shift;
+  return $self->ctx->view('Include',
+    items => $self->items);
+}
+
 __PACKAGE__->config(
   returns_status => [HTTP_OK],
-  template => qq[
+  template => q[
+    <?pure-overlay src='Views.Common' 
+      title=\'title'
+      body=\'body'?>
     <html>
       <head>
-        <title>TITLE</title>
+        <title>TODO List</title>
       </head>
       <body>
         <h1>Pending Items on <span id='now'>NOW</span></h1>
@@ -29,6 +38,8 @@ __PACKAGE__->config(
           <input type="text" name="title" placeholder="New Todo Item..." />
           <button>Submit</button>
         </form>
+        <span id="foot">...</span>
+        <?pure-include src='Views.Include' items='items'?>
       </body>
     </html>
   ],
@@ -39,6 +50,7 @@ __PACKAGE__->config(
       ],
     },
     '#now' => 'timestamp',
+    '#foot' => 'include',
   ],
 );
 

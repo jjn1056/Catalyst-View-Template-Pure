@@ -26,7 +26,7 @@ sub inject_http_status_helpers {
   foreach my $helper( grep { $_=~/^http/i} @HTTP::Status::EXPORT_OK) {
     my $subname = lc $helper;
     if(grep { HTTP::Status->$helper == $_ } @{ $args->{returns_status}||[]}) {
-      eval "sub $subname { return shift->response(HTTP::Status::$helper,\@_) }";
+      eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
     }
   }
 }
@@ -35,7 +35,7 @@ sub ACCEPT_CONTEXT {
   my ($self, $c, %args) = @_;
   my $args = $self->merge_config_hashes($self->config, \%args);
 
-  $c->stats->profile(begin => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
+  #$c->stats->profile(begin => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
 
   $args = $self->modify_context_args($args) if $self->can('modify_context_args');
   $self->handle_request($c, %$args) if $self->can('handle_request');
@@ -59,7 +59,7 @@ sub ACCEPT_CONTEXT {
   my $key = blessed($self) ? refaddr($self) : $self;
 
   if(blessed $c) {
-    return $c->stash->{"__Pure_${key}"} ||= do {
+    $c->stash->{"__Pure_${key}"} ||= do {
       $self->before_build($c, %$args) if $self->can('before_build');
       my $pure = $pure_class->new(
         template => $template,
@@ -82,8 +82,10 @@ sub ACCEPT_CONTEXT {
         pure => $pure,
       );
       $new->after_build($c) if $new->can('after_build');
-      return $new;
-    } 
+      $new;
+    };
+    #$c->stats->profile(end => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
+    return $c->stash->{"__Pure_${key}"};
   } else {
     die "Can't make this class without a context";
   }
@@ -96,10 +98,10 @@ sub apply_view {
 
 sub response {
   my ($self, $status, @proto) = @_;
-
   die "You need a context to build a response" unless $self->{ctx};
 
   my $res = $self->{ctx}->res;
+  $status = $res->status if $res->status != 200;
 
   if(ref($proto[0]) eq 'ARRAY') {
     my @headers = @{shift @proto};
@@ -107,24 +109,26 @@ sub response {
   }
 
   $self->on_response($self->{ctx},$res) if $self->can('on_response');
-
-  $res->status($status) unless $res->status != 200;
   $res->content_type('text/html') unless $res->content_type;
   my $body = $res->body($self->render);
 
-  $self->{ctx}->stats->profile(begin => "=> Response". ($status ? "($status)": ''));
-
-  return bless +{
+  my $response = bless +{
     ctx => $self->{ctx},
     content => $body,
   }, 'Catalyst::View::Template::Pure::Response';
+
+  return $response;
 }
 
 sub render {
   my ($self, $data) = @_;
+  $self->{ctx}->stats->profile(begin => "=> ".Catalyst::Utils::class2classsuffix($self->catalyst_component_name)."->Render");
+
   $self->before_render($self->{ctx}) if $self->can('before_render');
   # quite possible I should do something with $data...
-  return $self->{pure}->render($self)
+  my $string = $self->{pure}->render($self);
+  $self->{ctx}->stats->profile(end => "=> ".Catalyst::Utils::class2classsuffix($self->catalyst_component_name)."->Render");
+  return $string;
 }
 
 sub TO_HTML {
@@ -135,15 +139,17 @@ sub TO_HTML {
 
 sub Views {
   my $self = shift;
-  return \(
+  my %views = (
     map {
       my $v = $_;
       $v => sub {
         my ($pure, $dom, $data) = @_;
+        # TODO $data can be an object....
         $self->{ctx}->view($v, %$data);
       }
     } ($self->{ctx}->views)
   );
+  return \%views;
 }
 
 # Proxy these here for now.  I assume eventually will nee
