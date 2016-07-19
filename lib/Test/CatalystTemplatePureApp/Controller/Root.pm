@@ -8,24 +8,24 @@ extends 'Catalyst::Controller';
 sub root :Chained(/) PathPart('') CaptureArgs(0)
 {
   my ($self, $c) = @_;
-  $c->stash(items => $c->model('Schema::Todo'));
+  $c->current_view_instance(
+    $c->view('SummaryList',
+      items => $c->model));
 }
 
   sub summary_list :GET Chained(root) PathPart('') Args(0)  {
     my ($self, $c) = @_;
-    $c->view('SummaryList')->http_ok;
+    $c->view->http_ok;
   }
 
   sub add :POST Chained(root) PathPart('') Args(0) {
     my ($self, $c) = @_;
-    my $view = $c->view('SummaryList');
     my $form = $c->model('Form::Todo',
-      $c->model('Schema::Todo::Result'));
-    
+      $c->model->new_result({}));
     if($form->is_valid) {
-      $view->http_ok;
+      $c->view->http_ok;
     } else {
-      $view->apply_view('InputErrors',
+      $c->view->apply_view('InputErrors',
         errors => $form->errors_by_name)
         ->http_bad_request;
     }
