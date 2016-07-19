@@ -7,6 +7,7 @@ use Catalyst::View::Template::Pure::Response;
 use Scalar::Util qw/blessed refaddr/;
 use Catalyst::Utils;
 use HTTP::Status ();
+use File::Spec;
 
 use base 'Catalyst::View';
 
@@ -18,7 +19,22 @@ sub COMPONENT {
   $args = $class->modify_init_args($args) if $class->can('modify_init_args');
   $class->on_init($app, $args) if $class->can('on_init');
   $class->inject_http_status_helpers($args);
+  $class->load_auto_template($app, $args);
   return bless $args, $class;
+}
+
+sub load_auto_template {
+  my ($class, $app, $args) = @_;
+  if(delete $args->{auto_template_src}) {
+    my @parts = split("::", $class);
+    $parts[-1] = lc($parts[-1]) . '.html';
+    my $file = $app->path_to('lib', @parts);
+    if($app->debug) {
+      $class->config(template_src => $file);
+    } else {
+      $class->config(template => $file->slurp);
+    }
+  }
 }
 
 sub inject_http_status_helpers {
@@ -35,8 +51,6 @@ sub ACCEPT_CONTEXT {
   my ($self, $c, %args) = @_;
   my $args = $self->merge_config_hashes($self->config, \%args);
 
-  #$c->stats->profile(begin => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
-
   $args = $self->modify_context_args($args) if $self->can('modify_context_args');
   $self->handle_request($c, %$args) if $self->can('handle_request');
 
@@ -44,7 +58,7 @@ sub ACCEPT_CONTEXT {
   if(exists($args->{template})) {
     $template = delete ($args->{template});
   } elsif(exists($args->{template_src})) {
-    $template = $c->config->{root}->file(delete $args->{template_src})->slurp;
+    $template = (delete $args->{template_src})->slurp;
   } else {
     die "Can't find a template for your View";
   }
@@ -84,7 +98,6 @@ sub ACCEPT_CONTEXT {
       $new->after_build($c) if $new->can('after_build');
       $new;
     };
-    #$c->stats->profile(end => "=> ". Catalyst::Utils::class2classsuffix($self->catalyst_component_name));
     return $c->stash->{"__Pure_${key}"};
   } else {
     die "Can't make this class without a context";
@@ -108,7 +121,7 @@ sub response {
     $res->headers->push_header(@headers);
   }
 
-  $self->on_response($self->{ctx},$res) if $self->can('on_response');
+  $self->on_response($self->{ctx}, $res) if $self->can('on_response');
   $res->content_type('text/html') unless $res->content_type;
   my $body = $res->body($self->render);
 
