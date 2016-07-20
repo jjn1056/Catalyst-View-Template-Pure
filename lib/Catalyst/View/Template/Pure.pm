@@ -81,7 +81,9 @@ sub ACCEPT_CONTEXT {
         components => +{
           map {
             my $v = $_;
-            lc($v) => sub {
+            my $key = lc($v);
+            $key =~s/::/-/g;
+            $key => sub {
             my ($pure, %params) = @_;
             return $c->view($v, %params);
           } } ($c->views)
@@ -167,6 +169,17 @@ sub Views {
 
 # Proxy these here for now.  I assume eventually will nee
 # a subclass just for components
+#sub prepare_render_callback { shift->{pure}->prepare_render_callback }
+
+sub prepare_render_callback {
+  my $self = shift;
+  return sub {
+    my ($t, $dom, $data) = @_;
+    $self->{pure}->process_root($dom->root, $data);
+    $t->encoded_string($self->render($data));
+  };
+}
+
 sub style_fragment { shift->{pure}->style_fragment }
 sub script_fragment { shift->{pure}->script_fragment }
 sub ctx { return shift->{ctx} }
