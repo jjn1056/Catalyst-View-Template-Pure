@@ -21,14 +21,11 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
   sub add :POST Chained(root) PathPart('') Args(0) {
     my ($self, $c) = @_;
     my $form = $c->model('Form::Todo',
-      $c->model->new_result({}));
-    if($form->is_valid) {
-      $c->view->http_ok;
-    } else {
-      $c->view->apply_view('InputErrors',
-        errors => $form->errors_by_name)
+      $c->model->new_result(+{}));
+    $form->is_valid ?
+      $c->view->http_ok :
+      $c->view->apply_view('InputErrors', $form)
         ->http_bad_request;
-    }
   }
 
 __PACKAGE__->meta->make_immutable;

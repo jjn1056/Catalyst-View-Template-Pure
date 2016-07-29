@@ -20,7 +20,18 @@ sub COMPONENT {
   $class->on_init($app, $args) if $class->can('on_init');
   $class->inject_http_status_helpers($args);
   $class->load_auto_template($app, $args);
+  $class->find_fields;
+
   return bless $args, $class;
+}
+
+my @fields;
+sub find_fields {
+  my $class = shift;
+  for ($class->meta->get_all_attributes) {
+    next unless $_->has_init_arg;
+    push @fields, $_->init_arg;
+  }
 }
 
 sub load_auto_template {
@@ -48,9 +59,20 @@ sub inject_http_status_helpers {
 }
 
 sub ACCEPT_CONTEXT {
-  my ($self, $c, %args) = @_;
-  my $args = $self->merge_config_hashes($self->config, \%args);
+  my ($self, $c, @args) = @_;
 
+  my %args = ();
+  if(scalar(@args) % 2) {
+    my $proto = shift @args;
+    foreach my $field (@fields) {
+      if(my $cb = $proto->can($field)) {
+        $args{$field} = $proto->$field;
+      }
+    }
+  }
+
+  %args = (%args, @args);
+  my $args = $self->merge_config_hashes($self->config, \%args);
   $args = $self->modify_context_args($args) if $self->can('modify_context_args');
   $self->handle_request($c, %$args) if $self->can('handle_request');
 
@@ -107,8 +129,11 @@ sub ACCEPT_CONTEXT {
 }
 
 sub apply_view {
-  my ($self, $view, %args) = (@_, template => $_[0]->render);
-  return $self->{ctx}->view($view, %{$self->{ctx}->stash},%args)
+  my $self = shift;
+  my @args = (@_,
+    template => $self->render,
+    %{$self->{ctx}->stash});
+  return $self->{ctx}->view(@args);
 }
 
 sub response {

@@ -7,11 +7,6 @@ extends 'Catalyst::View::Template::Pure';
 
 has 'tz' => (is=>'ro', predicate=>'has_tz');
 
-sub before_render {
-  my ($self, $c, $res) = @_;
-  warn $self->{pure}->inner;
-}
-
 sub time {
   my ($self) = @_;
   my $now = DateTime->now();
