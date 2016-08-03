@@ -24,7 +24,7 @@ sub root :Chained(/) PathPart('') CaptureArgs(0)
       $c->model->new_result(+{}));
     $form->is_valid ?
       $c->view->http_ok :
-      $c->view->apply_view('InputErrors', $form)
+      $c->view->apply('InputErrors', $form)
         ->http_bad_request;
   }
 
