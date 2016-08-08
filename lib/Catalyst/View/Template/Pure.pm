@@ -53,8 +53,10 @@ sub inject_http_status_helpers {
   my ($class, $args) = @_;
   foreach my $helper( grep { $_=~/^http/i} @HTTP::Status::EXPORT_OK) {
     my $subname = lc $helper;
-    if(grep { HTTP::Status->$helper == $_ } @{ $args->{returns_status}||[]}) {
-      eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
+    my $code = HTTP::Status->$helper;
+    if(grep { $code == $_ } @{ $args->{returns_status}||[]}) {
+       eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
+       eval "sub $class::http_$code { return shift->response(HTTP::Status::$helper,\@_) }";
     }
   }
 }
@@ -65,6 +67,7 @@ sub ACCEPT_CONTEXT {
   my %args = ();
   if(scalar(@args) % 2) {
     my $proto = shift @args;
+    # TODO This needs to enforce the duck type
     foreach my $field (@fields) {
       if(my $cb = $proto->can($field)) {
         $args{$field} = $proto->$field;
@@ -133,6 +136,14 @@ sub apply {
   my $self = shift;
   my @args = (@_,
     template => $self->render,
+    %{$self->{ctx}->stash});
+  return $self->{ctx}->view(@args);
+}
+
+sub wrap {
+  my $self = shift;
+  my @args = (@_,
+    content => $self->render,
     %{$self->{ctx}->stash});
   return $self->{ctx}->view(@args);
 }
@@ -579,7 +590,157 @@ as you climb the learning curve with L<Template::Pure>
 
 =head1 METHODS
 
-This class defines the following methods.
+This class defines the following methods.  Please note that response helpers
+will be generated as well (http_ok, http_200, etc.) based on the contents of
+your L<\returns_status> configuration settings.
+
+=head2 apply
+
+Takes a view name and optionally arguments that are passed to ->new.  Used to
+apply a view over the results of a previous one, allowing for chained views.
+For example:
+
+    $c->view('Base', %args)
+      ->apply('Sidebar', items => \@menu_items)
+      ->apply('Footer', copyright => 2016)
+      ->http_ok;
+
+When a view is used via 'apply', the result of the previous template becomes
+the 'template' argument, even if that view defined its own template via
+configuration.  This is so that you can use the same view as standalone or as
+part of a chain of transformations.
+
+Useful when you are building up a view over a number of actions in a chain or
+when you which to programmatically control how a view is created from the
+controller.  You may also consider the use of includes and overlays inside your
+view, or custom directive actions for more complex view building.
+
+=head2 wrap
+
+Used to pass the response on a template to another template, via a 'content'
+argument. Similar to the 'wrapper' processing instruction.  Example:
+
+    package MyApp::View::Users;
+
+    use Moose;
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has [qw/name age location/] => (is=>'ro', required=>1);
+
+    __PACKAGE__->config(
+      allows_status => [200],
+      template => q[
+        <dl>
+          <dt>Name</dt>
+          <dd id='name'></dd>
+          <dt>Age</dt>
+          <dd id='age'></dd>
+          <dt>Location</dt>
+          <dd id='location'></dd>
+        </dl>
+      ],
+      directives => [
+        '#name' => 'name',
+        '#age' => 'age',
+        '#location' => 'location',
+      ]
+    );
+
+    package MyApp::View::HeaderFooter;
+
+    use Moose;
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has 'title' => (is=>'ro', isa=>'String');
+    has 'content' => (is=>'ro');
+
+    __PACKAGE__->config(
+      allows_status => [200],
+      template => q[
+        <html>
+          <head>
+            <title>TITLE GOES HERE</title>
+          </head>
+          <body>
+            CONTENT GOES HERE
+          </body>
+        </html>
+      ],
+      directives => [
+        title => 'title',
+        body => 'content',
+      ]
+    );
+
+    package MyApp::Controller::UserProfile;
+
+    use Moose;
+    use MooseX::MethodAttributes;
+
+    extends 'Catalyst::Controller';
+
+    sub show_profile :Path('profile') Args(0) {
+      my ($self, $c) = @_;
+      $c->view('UserProfile', $user)
+        ->wrap('HeaderFooter', title=>'User Profile')
+        ->http_ok;
+    }
+
+Generates a Response like:
+
+    <html>
+      <head>
+        <title>User Profile</title>
+      </head>
+      <body>
+        <dl>
+          <dt>Name</dt>
+          <dd id='name'></dd>
+          <dt>Age</dt>
+          <dd id='age'></dd>
+          <dt>Location</dt>
+          <dd id='location'></dd>
+        </dl>
+      </body>
+    </html>
+
+=head2 response
+
+Used to run the directives and actions on the template, setting information
+into the L<Catalyst::Response> object such as body, status, headers, etc.
+Example
+
+    $c->view('Hello',
+      title => 'Hello There',
+      list => \@users )
+      ->response(200, %headers);
+
+This will populate the L<Catalyst::Response> status and headers, and render the
+template into body.  It will not finalized and send the response to the client.
+If you need to stop processing immediately (for example you are creating some
+sort of error response in a middle action in a chain) you need to $c->detach
+or use the detach convenience method:
+
+    $c->view('BadRequest',
+      title => 'Hello There',
+      list => \@users )
+      ->response(400, %headers)
+      ->detach;
+
+Often you will instead set the L</returns_status> configuration setting and
+use a response helper instead of using it directly.
+
+    $c->view('BadRequest',
+      title => 'Hello There',
+      list => \@users )
+      ->http_bad_request
+      ->detach;
+
+=head2 ctx
+
+Lets your view access the current context object.  
 
 =head2 RUNTIME HOOKS
 
@@ -595,6 +756,10 @@ This Catalyst Component supports the following configuation
 =head2 template_src
 
 =head2 auto_template_src
+
+=head2 returns_status
+
+=head2 directives
 
 =head1 ALSO SEE
 
