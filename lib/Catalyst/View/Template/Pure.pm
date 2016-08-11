@@ -55,6 +55,7 @@ sub inject_http_status_helpers {
     my $subname = lc $helper;
     my $code = HTTP::Status->$helper;
     if(grep { $code == $_ } @{ $args->{returns_status}||[]}) {
+      warn "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
        eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
        eval "sub $class::http_$code { return shift->response(HTTP::Status::$helper,\@_) }";
     }
@@ -222,8 +223,8 @@ sub script_fragment { shift->{pure}->script_fragment }
 sub ctx { return shift->{ctx} }
 
 sub process {
-  # TODO we should support this for people that use the old shcool
-  # renderview.
+  my ($self, $c, @args) = @_;
+  $self->response(200, @args);
 }
 
 sub headers { 
@@ -240,17 +241,17 @@ Catalyst::View::Template::Pure - Catalyst view adaptor for Template::Pure
     package  MyApp::View::Story;
 
     use Moose;
-    use DateTime;
     use HTTP::Status qw(:constants);
 
     extends 'Catalyst::View::Template::Pure';
 
-    has [qw/title body/] => (is=>'ro', required=>1);
+    has [qw/title body timestamp/] => (is=>'ro', required=>1);
 
-    sub timestamp { DateTime->now }
+    sub current { scalar localtime }
 
     __PACKAGE__->config(
-      allows_status => [HTTP_OK],
+      timestamp => scalar(localtime),
+      returns_status => [HTTP_OK],
       init_time => scalar(localtime),
       template => q[
         <!doctype html>
@@ -260,13 +261,15 @@ Catalyst::View::Template::Pure - Catalyst view adaptor for Template::Pure
           </head>
           <body>
             <div id="main">Content goes here!</div>
-            <div id="timestamp">Server Started on:</div>
+            <div id="current">Current Localtime: </div>
+            <div id="timestamp">Server Started on: </div>
           </body>
         </html>      
       ],
       directives => [
         'title' => 'title',
         '#main' => 'body',
+        '#current+' => 'current',
         '#timestamp+' => 'timestamp',
       ],
     );
@@ -301,9 +304,12 @@ When hitting a page that activates the 'display_story' action, returns:
         </head>
         <body>
           <div id="main">It was a dark and stormy night. Suddenly...</div>
+          <div id="current">Current Localtime: July 29, 2016 11:30:34</div>
           <div id="timestamp">Server Started on: July 29, 2016 11:30:00</div>
         </body>
       </html>
+
+(Obviously the 'localtime' information will vary ;)
 
 =head1 DESCRIPTION
 
@@ -374,7 +380,7 @@ issues and in greating code clarity.  Lets create a simple view:
         '#name' => 'name',
         '#timestamp+' => 'timestamp',
       ],
-      allows_status => [HTTP_OK],
+      returns_status => [HTTP_OK],
     );
 
     __PACKAGE__->meta->make_immutable;
@@ -445,7 +451,7 @@ encourage you to choose the approach that leads to clean and reusable code.
 Lastly, L<Catalyst::View::Template::Pure> allows you to specify the type of response
 status code can be associated with this view.  This can be useful when you want
 to make it clear that a given view is an error response or for created resources.
-To enable this feature you simple set the 'allows_status' configuration key to
+To enable this feature you simple set the 'returns_status' configuration key to
 an arrayref of the HTTP status codes allowed.  This is simple a number (201 for
 created, for example) but for clarity in the given example I've used L<HTTP::Status>
 to give the allowed codes a friendly name.  You can choose to follow this example
@@ -588,6 +594,10 @@ keep in mind the following are not the only ways to solve this problems, but jus
 what I think of as very straightfoward ways that are a good starting point for you
 as you climb the learning curve with L<Template::Pure>
 
+=head2 Includes, Wrappers and Master Pages
+
+    TBD
+
 =head1 METHODS
 
 This class defines the following methods.  Please note that response helpers
@@ -629,7 +639,7 @@ argument. Similar to the 'wrapper' processing instruction.  Example:
     has [qw/name age location/] => (is=>'ro', required=>1);
 
     __PACKAGE__->config(
-      allows_status => [200],
+      returns_status => [200],
       template => q[
         <dl>
           <dt>Name</dt>
@@ -657,7 +667,7 @@ argument. Similar to the 'wrapper' processing instruction.  Example:
     has 'content' => (is=>'ro');
 
     __PACKAGE__->config(
-      allows_status => [200],
+      returns_status => [200],
       template => q[
         <html>
           <head>
@@ -753,13 +763,30 @@ This Catalyst Component supports the following configuation
 
 =head2 template
 
+This is a string which is an HTML Template.
+
 =head2 template_src
+
+Filesystem path where a template can be found
 
 =head2 auto_template_src
 
+Loads the template from a filesystem path based on the View name.  For example if
+your view is "MyApp::View::Story", under $home/MyApp/View/Story.pm then you'd
+expect a template at $home/MyApp/View/story.html
+
+This feature is evolving and may change as the software stablizes and we get feedback
+from users (I know the current default location here is differnt from the way a lot
+of common Catalyst Views work...)
+
 =head2 returns_status
 
+An ArrayRef of HTTP status codes used to provide response helpers.
+
 =head2 directives
+
+An ArrayRef of match => actions that is used by L<Template::Pure> to apply tranformations
+onto a template from a given data reference.
 
 =head1 ALSO SEE
 
