@@ -16,8 +16,7 @@ our $VERSION = '0.001';
 sub COMPONENT {
   my ($class, $app, $args) = @_;
   $args = $class->merge_config_hashes($class->config, $args);
-  $args = $class->modify_init_args($args) if $class->can('modify_init_args');
-  $class->on_init($app, $args) if $class->can('on_init');
+  $args = $class->modify_init_args($app, $args) if $class->can('modify_init_args');
   $class->inject_http_status_helpers($args);
   $class->load_auto_template($app, $args);
   $class->find_fields;
@@ -48,7 +47,6 @@ sub load_auto_template {
   }
 }
 
-## Add stuff like http_200
 sub inject_http_status_helpers {
   my ($class, $args) = @_;
   foreach my $helper( grep { $_=~/^http/i} @HTTP::Status::EXPORT_OK) {
@@ -77,7 +75,7 @@ sub ACCEPT_CONTEXT {
 
   %args = (%args, @args);
   my $args = $self->merge_config_hashes($self->config, \%args);
-  $args = $self->modify_context_args($args) if $self->can('modify_context_args');
+  $args = $self->modify_context_args($c, $args) if $self->can('modify_context_args');
   $self->handle_request($c, %$args) if $self->can('handle_request');
 
   my $template;
@@ -101,7 +99,6 @@ sub ACCEPT_CONTEXT {
 
   if(blessed $c) {
     $c->stash->{"__Pure_${key}"} ||= do {
-      $self->before_build($c, %$args) if $self->can('before_build');
 
       ## TODO Could we not optimize by building this just once per application
       ## scope?
@@ -123,14 +120,12 @@ sub ACCEPT_CONTEXT {
         %$args,
       );
       
-      my $new = ref($self)->new(
+      return ref($self)->new(
         %{$args},
         %{$c->stash},
         ctx => $c,
         pure => $pure,
       );
-      $new->after_build($c) if $new->can('after_build');
-      $new;
     };
     return $c->stash->{"__Pure_${key}"};
   } else {
@@ -166,7 +161,6 @@ sub response {
     $res->headers->push_header(@headers);
   }
 
-  $self->on_response($self->{ctx}, $res) if $self->can('on_response');
   $res->content_type('text/html') unless $res->content_type;
   my $body = $res->body($self->render);
 
@@ -182,7 +176,6 @@ sub render {
   my ($self, $data) = @_;
   $self->{ctx}->stats->profile(begin => "=> ".Catalyst::Utils::class2classsuffix($self->catalyst_component_name)."->Render");
 
-  $self->before_render($self->{ctx}) if $self->can('before_render');
   # quite possible I should do something with $data...
   my $string = $self->{pure}->render($self);
   $self->{ctx}->stats->profile(end => "=> ".Catalyst::Utils::class2classsuffix($self->catalyst_component_name)."->Render");
@@ -950,10 +943,20 @@ and passing the information into the view.
       $self->ctx->view('Include');
     }
 
-=head2 RUNTIME HOOKS
+=head1 RUNTIME HOOKS
 
 This class defines the following method hooks you may optionally defined in your
 view subclass in order to control or otherwise influence how the view works.
+
+=head2 $class->modify_init_args($app, $args)
+
+Runs when C<COMPONENT> is called during C<setup_components>.  This gets a reference
+to the merged arguments from all configuration.  You should return this reference
+after modification.
+
+=head2 $self->modify_context_args($ctx, $args)
+
+Runs at C<ACCEPT_CONTEXT> and can be used to modify the arguments (including those passed to the view) before they are used to create a response.  Should return C<$args>.
 
 =head1 CONFIGURATION
 
