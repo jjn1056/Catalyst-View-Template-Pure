@@ -321,6 +321,14 @@ deeper understanding of how this all works.  The following information is specif
 we adapt L<Template::Pure> to run under L<Catalyst>; as a result it will assume you already
 know the basics of creating templates and directives using L<Template::Pure>
 
+B<NOTE>: Like L<Template::Pure> I consider this work to be early access and reserve the
+right to make changes needed to achieve stability and production quality.  In general I feel
+pretty good about the interface but there's likely to be changes around speed optimization,
+error reporting and in particular web components are not fully baked.  I recommend if you
+are using this to avoid deeply hooking into internals since that stuff is most likely to
+change.  If you are using this for your work please let me know how its going.  Don't find bugs
+surprising, but please report them!
+
 =head1 CREATING AND USING VIEWS
 
 In many template adaptors for L<Catalyst> you create a single 'View' which is a sort of

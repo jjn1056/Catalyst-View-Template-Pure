@@ -1,23 +1,38 @@
 use Test::Most;
 
 {
-    package  MyApp::View::Include;
-    $INC{'MyApp/View/Include.pm'} = __FILE__;
+    package  MyApp::View::Timestamp;
+    $INC{'MyApp/View/Timestamp.pm'} = __FILE__;
 
     use Moose;
+    use DateTime;
+
     extends 'Catalyst::View::Template::Pure';
 
-    sub now { scalar localtime }
+    has 'tz' => (is=>'ro', predicate=>'has_tz');
+
+    sub time {
+      my ($self) = @_;
+      my $now = DateTime->now();
+      $now->set_time_zone($self->tz)
+        if $self->has_tz;
+      return $now;
+    }
 
     __PACKAGE__->config(
-      template => q{
-        <div class="timestamp">The Time is now: </div>
-      },
+      pure_class => 'Template::Pure::Component',
+      template => qq[
+        <span class='timestamp'>time</span>
+      ],
+      style => qq[
+        .timestamp {
+          background:blue;
+        }
+      ],
       directives => [
-        '.timestamp' => 'now'
+        '.timestamp' => 'time',
       ],
     );
-
     __PACKAGE__->meta->make_immutable;
 
     package  MyApp::View::Story;
@@ -27,8 +42,6 @@ use Test::Most;
     extends 'Catalyst::View::Template::Pure';
 
     has [qw/title body/] => (is=>'ro', required=>1);
-
-    sub timestamp { scalar localtime }
 
     __PACKAGE__->config(
       returns_status => [200],
@@ -41,15 +54,13 @@ use Test::Most;
           </head>
           <body>
             <div id="main">Content goes here!</div>
-            <div id="timestamp">Server Started on:</div>
-            <?pure-include src='Views.Include'?>
+            <pure-timestamp />
           </body>
         </html>      
       ],
       directives => [
         'title' => 'title',
         '#main' => 'body',
-        '#timestamp+' => 'timestamp',
       ],
     );
 
@@ -87,11 +98,11 @@ use Mojo::DOM58;
 ok my $res = request '/story';
 ok my $dom = Mojo::DOM58->new($res->content);
 
-#warn $res->content;
+warn $res->content;
 
 is $dom->at('title')->content, 'A Dark and Stormy Night...';
 is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
-like $dom->at('#timestamp')->content, qr/Server Started on:.+$/;
+ok $dom->at('.timestamp')->content;
 
 done_testing;
 

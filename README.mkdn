@@ -89,6 +89,14 @@ deeper understanding of how this all works.  The following information is specif
 we adapt [Template::Pure](https://metacpan.org/pod/Template::Pure) to run under [Catalyst](https://metacpan.org/pod/Catalyst); as a result it will assume you already
 know the basics of creating templates and directives using [Template::Pure](https://metacpan.org/pod/Template::Pure)
 
+**NOTE**: Like [Template::Pure](https://metacpan.org/pod/Template::Pure) I consider this work to be early access and reserve the
+right to make changes needed to achieve stability and production quality.  In general I feel
+pretty good about the interface but there's likely to be changes around speed optimization,
+error reporting and in particular web components are not fully baked.  I recommend if you
+are using this to avoid deeply hooking into internals since that stuff is most likely to
+change.  If you are using this for your work please let me know how its going.  Don't find bugs
+surprising, but please report them!
+
 # CREATING AND USING VIEWS
 
 In many template adaptors for [Catalyst](https://metacpan.org/pod/Catalyst) you create a single 'View' which is a sort of
@@ -711,10 +719,20 @@ and passing the information into the view.
       $self->ctx->view('Include');
     }
 
-## RUNTIME HOOKS
+# RUNTIME HOOKS
 
 This class defines the following method hooks you may optionally defined in your
 view subclass in order to control or otherwise influence how the view works.
+
+## $class->modify\_init\_args($app, $args)
+
+Runs when `COMPONENT` is called during `setup_components`.  This gets a reference
+to the merged arguments from all configuration.  You should return this reference
+after modification.
+
+## $self->modify\_context\_args($ctx, $args)
+
+Runs at `ACCEPT_CONTEXT` and can be used to modify the arguments (including those passed to the view) before they are used to create a response.  Should return `$args`.
 
 # CONFIGURATION
 
