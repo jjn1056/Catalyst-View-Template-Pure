@@ -8,6 +8,7 @@ use Scalar::Util qw/blessed refaddr/;
 use Catalyst::Utils;
 use HTTP::Status ();
 use File::Spec;
+use Mojo::DOM58;
 
 use base 'Catalyst::View';
 
@@ -35,26 +36,46 @@ sub find_fields {
 
 sub load_auto_template {
   my ($class, $app, $args) = @_;
+  my @parts = split("::", $class);
+  my $filename = lc(pop @parts);
+  
   if(delete $args->{auto_template_src}) {
-    my @parts = split("::", $class);
-    $parts[-1] = lc($parts[-1]) . '.html';
-    my $file = $app->path_to('lib', @parts);
-    if($app->debug) {
-      $class->config(template_src => $file);
-    } else {
-      $class->config(template => $file->slurp);
+    my $file = $app->path_to('lib', @parts, $filename.'.html');
+    my $contents = $file->slurp;
+    my $dom = Mojo::DOM58->new($contents);
+    if(my $node = $dom->at('pure-component')) {
+      if(my $script_node = $node->at('script')) {
+        $class->config(script => "$script_node");
+        $script_node->remove('script');
+      }
+      if(my $style_node = $node->at('style')) {
+        $class->config(style => "$style_node");
+        $style_node->remove('style');
+      }
+      $contents = $node->content;
     }
+    $class->config(template => $contents);
+  }
+  if(delete $args->{auto_script_src}) {
+    my $file = $app->path_to('lib', @parts, $filename.'.js');
+    $class->config(script => $file->slurp);    
+  }
+  if(delete $args->{auto_style_src}) {
+    my $file = $app->path_to('lib', @parts, $filename.'.css');
+    $class->config(style => $file->slurp);    
   }
 }
 
 sub inject_http_status_helpers {
   my ($class, $args) = @_;
+  return unless $args->{returns_status};
   foreach my $helper( grep { $_=~/^http/i} @HTTP::Status::EXPORT_OK) {
     my $subname = lc $helper;
     my $code = HTTP::Status->$helper;
+    my $codename = "http_".$code;
     if(grep { $code == $_ } @{ $args->{returns_status}||[]}) {
        eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
-       eval "sub $class::http_$code { return shift->response(HTTP::Status::$helper,\@_) }";
+       eval "sub $class::$codename { return shift->response(HTTP::Status::$helper,\@_) }";
     }
   }
 }

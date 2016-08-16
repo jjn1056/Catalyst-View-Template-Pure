@@ -21,14 +21,7 @@ use Test::Most;
 
     __PACKAGE__->config(
       pure_class => 'Template::Pure::Component',
-      template => qq[
-        <span class='timestamp'>time</span>
-      ],
-      style => qq[
-        .timestamp {
-          background:blue;
-        }
-      ],
+      auto_template_src => 1,
       directives => [
         '.timestamp' => 'time',
       ],
@@ -46,18 +39,7 @@ use Test::Most;
     __PACKAGE__->config(
       returns_status => [200],
       init_time => scalar(localtime),
-      template => q[
-        <!doctype html>
-        <html lang="en">
-          <head>
-            <title>Title Goes Here</title>
-          </head>
-          <body>
-            <div id="main">Content goes here!</div>
-            <pure-timestamp />
-          </body>
-        </html>      
-      ],
+      auto_template_src => 1,
       directives => [
         'title' => 'title',
         '#main' => 'body',
@@ -88,7 +70,9 @@ use Test::Most;
     $INC{'MyApp.pm'} = __FILE__;
 
     use Catalyst;
+    use File::Spec;
 
+    MyApp->config(home => File::Spec->rel2abs(join '', (File::Spec->splitpath(__FILE__))[0, 1]));
     MyApp->setup;
 }
 
@@ -103,6 +87,8 @@ warn $res->content;
 is $dom->at('title')->content, 'A Dark and Stormy Night...';
 is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
 ok $dom->at('.timestamp')->content;
+ok $dom->at('head style')->content;
+ok $dom->at('head script')->content;
 
 done_testing;
 
