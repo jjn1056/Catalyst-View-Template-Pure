@@ -1,6 +1,25 @@
 use Test::Most;
 
 {
+    package  MyApp::View::Include;
+    $INC{'MyApp/View/Include.pm'} = __FILE__;
+
+    use Moose;
+    extends 'Catalyst::View::Template::Pure';
+
+    sub now { scalar localtime }
+
+    __PACKAGE__->config(
+      template => q{
+        <div class="timestamp">The Time is now: </div>
+      },
+      directives => [
+        '.timestamp' => 'now'
+      ],
+    );
+
+    __PACKAGE__->meta->make_immutable;
+
     package  MyApp::View::Story;
     $INC{'MyApp/View/Story.pm'} = __FILE__;
 
@@ -23,6 +42,7 @@ use Test::Most;
           <body>
             <div id="main">Content goes here!</div>
             <div id="timestamp">Server Started on:</div>
+            <?pure-include src='Views.Include'?>
           </body>
         </html>      
       ],
@@ -65,8 +85,13 @@ use Catalyst::Test 'MyApp';
 use Mojo::DOM58;
 
 ok my $res = request '/story';
+ok my $dom = Mojo::DOM58->new($res->content);
 
 warn $res->content;
+
+is $dom->at('title')->content, 'A Dark and Stormy Night...';
+is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
+like $dom->at('#timestamp')->content, qr/Server Started on:.+$/;
 
 done_testing;
 

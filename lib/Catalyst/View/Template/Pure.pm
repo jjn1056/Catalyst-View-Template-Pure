@@ -55,7 +55,6 @@ sub inject_http_status_helpers {
     my $subname = lc $helper;
     my $code = HTTP::Status->$helper;
     if(grep { $code == $_ } @{ $args->{returns_status}||[]}) {
-      warn "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
        eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
        eval "sub $class::http_$code { return shift->response(HTTP::Status::$helper,\@_) }";
     }
@@ -91,6 +90,7 @@ sub ACCEPT_CONTEXT {
   }
 
   my $directives = delete $args->{directives};
+  my $filters = delete $args->{filters};
   my $pure_class = exists($args->{pure_class}) ?
     delete($args->{pure_class}) :
     'Template::Pure';
@@ -102,9 +102,14 @@ sub ACCEPT_CONTEXT {
   if(blessed $c) {
     $c->stash->{"__Pure_${key}"} ||= do {
       $self->before_build($c, %$args) if $self->can('before_build');
+
+      ## TODO Could we not optimize by building this just once per application
+      ## scope?
+
       my $pure = $pure_class->new(
         template => $template,
         directives => $directives,
+        filters => $filters,
         components => +{
           map {
             my $v = $_;
@@ -350,7 +355,9 @@ development process.  The upside is that you are creating strongly types views t
 can contain their own logic, defaults and anything else that can go into a Perl class.
 This way you can enforce an interface between your views and the controllers that use
 them.  Over time the extra, original overhead should pay you back in less maintainance
-issues and in greating code clarity.  Lets create a simple view:
+issues and in greater code clarity.
+
+So here's the example!  Lets create a simple view:
 
     package  MyApp::View::Hello;
 
@@ -385,12 +392,20 @@ issues and in greating code clarity.  Lets create a simple view:
 
     __PACKAGE__->meta->make_immutable;
 
-So this is a very simple view with just three bits of data that is used to create
+So this is a small view with just three bits of data that is used to create
 an end result webpage.  Two fields need to be passed to the view (title and name)
 while the third one (timestamp) is generated locally by the view itself.  The three
 entries under the 'directives' key are instructions to L<Template::Pure> to run
 an action at a particular CSS match in the templates HTML DOM (see documentation
-for L<Template::Pure> for more details). Lets use this in a controller:
+for L<Template::Pure> for more details). 
+
+B<NOTE> In this and most following examples the template is a literal string inside
+the view under the C<template> configuration key. This is handy for demo and for 
+small views (such as includes) but your template authors may prefer to use a more standard
+text file, in which case you can specify a path to the template via configuration options
+C<template_src> or C<auto_template_src>; see L</CONFIGURATION>
+  
+Lets use this in a controller:
 
     package MyApp::Controller::Hello;
 
@@ -413,8 +428,8 @@ Again, if you are following a classic pattern in L<Catalyst> you might be using 
 L<Catalyst::Action::RenderView> on a global 'end' action (typically in your
 Root controller) to do the job of forwarding the request to a view.  Then, the view
 would decide on a template based on a few factors, such as the calling action's
-private name.  In this case instead we are calling the view directly, as well as
-directly sending the view's arguments call to the view, instead of via the
+private name.  With L<Catalyst::View::Template::Pure> instead we are calling the view directly,
+as well as directly sending the view's arguments call to the view, instead of via the
 stash (although as we will see later, you can still use the stash and even the
 L<Catalyst::Action::RenderView> approach if that is really the best setup for
 your application).
@@ -495,8 +510,8 @@ was the result I got only at the time of writing this document).
 =head1 USING THE STASH
 
 If you are used to using the L<Catalyst> stash to pass information to your view
-or you have complex chaining and like to build up data over many actions, you
-may continue to do that.  For example:
+or you have complex chaining and like to build up data over many actions into the
+stash, you may continue to do that.  For example:
 
     sub say_hello :Path('') Args(0) {
       my ($self, $c) = @_;
@@ -517,20 +532,12 @@ of strong typing, missing defined interface and issues with typos, for example).
 =head1 CHAINING TEMPLATE TRANFORMATIONS
 
 There are several ways to decompose your repeated or options template transforms
-into reusable chunks, at the View level.  However there are often cases when the
+into reusable chunks, at the View level.  Please see L<Template::Pure> for more
+abour includes, wrappers and overlays.  However there are often cases when the
 decision to use or apply changes to your template best occur at the controller
 level.  For example you may wish to add some messaging to your template if a form
 has incorrect data.  In those cases you may apply additional Views.  Applied views
-will use as its starting template the results of the previous.  For example:
-
-    sub say_hello :Path('') Args(0) {
-      my ($self, $c) = @_;
-      $c->stash(
-        title => 'Hello to You!',
-        name => 'John Napiorkowski',
-      );
-      $c->view('Hello')->http_ok;
-    }
+will use as its starting template the results of the previous view.  For example:
 
     sub process_form :POST Path('') Args(0) {
       my ($self, $c) = @_;
@@ -546,7 +553,8 @@ will use as its starting template the results of the previous.  For example:
     }
 
 You may chain as many applied views as you like, even using this technique to build up
-an entire page of results.
+an entire page of results.  Chaining transformations this way can help you to avoid some
+of the messy, complex logic that often creeps into our templates.
 
 =head1 MAPPING TEMPLATE ARGS FROM AN OBJECT
 
@@ -567,7 +575,7 @@ call itself.  This might sometimes lead to highly verbose calls:
     }
 
 Listing each argument has the advantage of clarity but the verbosity can be distracting
-and take programmer time.  So, in the case where a source object provides an interface
+and waste programmer time.  So, in the case where a source object provides an interface
 which is identical to the interface required by the view, you may just pass the object
 and we will map required attributes for the view from method named on the object.  For
 example:
@@ -596,7 +604,171 @@ as you climb the learning curve with L<Template::Pure>
 
 =head2 Includes, Wrappers and Master Pages
 
-    TBD
+Generally when building a website you will break up common elements of the user
+interface into re-usable chunks.  For example its common to have some standard
+elements for headers and footers, or to have a master page template that provides
+a common page structure.  L<Template::Pure> supports these via processing
+instructions which appear inside the actual template or via the including of
+actual template objects as values for you directive actions on in your data.
+
+The documentation for L<Template::Pure> covers these concepts and approaches in
+general.  However L<Catalyst::View::Template::Pure> provides a bit of assistance
+with helper methods that are unique to this module and require explanation.  Here's
+an example of an include which creates a time stamp element in your page:
+
+    package  MyApp::View::Include;
+
+    use Moose;
+
+    extends 'Catalyst::View::Template::Pure';
+
+    sub now { scalar localtime }
+
+    __PACKAGE__->config(
+      template => q{
+        <div class="timestamp">The Time is now: </div>
+      },
+      directives => [
+        '.timestamp' => 'now'
+      ],
+    );
+
+    __PACKAGE__->meta->make_immutable;
+
+Since this include is not intended to be used 'stand alone' we didn't bother to
+set a 'returns_status' configuration.
+
+So there's a few ways to use this in a template.
+
+    package  MyApp::View::Hello;
+
+    use Moose;
+    use HTTP::Status qw(:constants);
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has 'name' => (is=>'ro', required=>1);
+
+    __PACKAGE__->config(
+      returns_status => [HTTP_OK],
+      template => q{
+        <html>
+          <head>
+            <title>Hello</title>
+          </head>
+          <body>
+            <p id='hello'>Hello There </p>
+            <?pure-include src='Views.Include'?>
+          </body>
+        </html>
+      },
+      directives => [
+        '#hello' => 'name',
+      ],
+    );
+
+    __PACKAGE__->meta->make_immutable;
+
+In this example we set the C<src> attribute for the include processing
+instruction to a path off 'Views' which is a special method on the view that
+returns access to all the other views that are loaded.  So essentially any
+view could serve as a source.
+
+The same approach would be used to set overlays and wrappers via processing
+instructions.
+
+If using the C<Views> helper seems too flimsy an interface, you may instead
+specify a view via an accessor, just like any other data.
+
+    package  MyApp::View::Hello;
+
+    use Moose;
+    use HTTP::Status qw(:constants);
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has 'name' => (is=>'ro', required=>1);
+
+    sub include {
+      my $self = shift;
+      $self->ctx->view('Include');
+    }
+
+    __PACKAGE__->config(
+      returns_status => [HTTP_OK],
+      template => q{
+        <html>
+          <head>
+            <title>Hello</title>
+          </head>
+          <body>
+            <p id='hello'>Hello There </p>
+            <?pure-include src='include' ?>
+          </body>
+        </html>
+      },
+      directives => [
+        '#hello' => 'name',
+      ],
+    );
+
+    __PACKAGE__->meta->make_immutable;
+
+Just remember if your include expects arguments (and most will) you should pass
+them in the view call.
+
+In fact you could allow one to pass the view C<src> include (or wrapper, or overlay)
+from the controller, if you need more dynamic control:
+
+    package  MyApp::View::Hello;
+
+    use Moose;
+    use HTTP::Status qw(:constants);
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has 'name' => (is=>'ro', required=>1);
+    has 'include' => (is=>'ro', required=>1);
+
+    __PACKAGE__->config(
+      returns_status => [HTTP_OK],
+      template => q{
+        <html>
+          <head>
+            <title>Hello</title>
+          </head>
+          <body>
+            <p id='hello'>Hello There </p>
+            <?pure-include src='include' ?>
+          </body>
+        </html>
+      },
+      directives => [
+        '#hello' => 'name',
+      ],
+    );
+
+    __PACKAGE__->meta->make_immutable;
+
+    package MyApp::Controller::Hello;
+
+    use Moose;
+    use MooseX::Attributes;
+
+    extends 'Catalyst::Controller';
+
+    sub hello :Path('') {
+      my ($self, $ctx) = @_;
+      $ctx->view('Hello',
+        name => 'John',
+        include => $ctx->view('Include'));
+    }
+
+    __PACKAGE__->meta->make_immutable;
+
+Even more fancy approaches could include setting up the required bits via
+dependency injection (approaches for this in Catalyst are still somewhat
+experimental, see L<Catalyst::Plugin::MapComponentDependencies>
 
 =head1 METHODS
 
@@ -621,7 +793,7 @@ configuration.  This is so that you can use the same view as standalone or as
 part of a chain of transformations.
 
 Useful when you are building up a view over a number of actions in a chain or
-when you which to programmatically control how a view is created from the
+when you need to programmatically control how a view is created from the
 controller.  You may also consider the use of includes and overlays inside your
 view, or custom directive actions for more complex view building.
 
@@ -698,7 +870,8 @@ argument. Similar to the 'wrapper' processing instruction.  Example:
         ->http_ok;
     }
 
-Generates a Response like:
+Generates a response like (assuming C<$user> is an object that provides
+C<name>, C<age> and C<location> with the sample values):
 
     <html>
       <head>
@@ -707,11 +880,11 @@ Generates a Response like:
       <body>
         <dl>
           <dt>Name</dt>
-          <dd id='name'></dd>
+          <dd id='name'>Mike Smith</dd>
           <dt>Age</dt>
-          <dd id='age'></dd>
+          <dd id='age'>42</dd>
           <dt>Location</dt>
-          <dd id='location'></dd>
+          <dd id='location'>UK</dd>
         </dl>
       </body>
     </html>
@@ -748,9 +921,34 @@ use a response helper instead of using it directly.
       ->http_bad_request
       ->detach;
 
+=head2 $response helpers
+
+In order to better purpose your views and to add some ease of use for your
+programmers, you may specify what HTTP status codes a view is allowed to
+return via the L</returns_status> configuration option.  When you do this
+we automatically generate response helper methods.  For example if you set
+C<returns_status> to [200,400] we will create methods C<http_ok>, C<http_200>,
+C<http_bad_request> and C<http_400> into your view.  This method will finalize
+your response as well as return an object that you can call C<detach> upon
+should you wish to short circuit any remaining actions.
+
+Lastly you may pass as arguments an array of HTTP headers:
+
+    $c->view("NewUser")
+      ->http_created(location=>$url)
+      ->detach;
+
 =head2 ctx
 
-Lets your view access the current context object.  
+Lets your view access the current context object.  Useful in a custom view method
+when you need to access other models or context information.  You should however
+take care to consider if you might not be better off accessing this via the controller
+and passing the information into the view.
+
+    sub include {
+      my $self = shift;
+      $self->ctx->view('Include');
+    }
 
 =head2 RUNTIME HOOKS
 
@@ -787,6 +985,26 @@ An ArrayRef of HTTP status codes used to provide response helpers.
 
 An ArrayRef of match => actions that is used by L<Template::Pure> to apply tranformations
 onto a template from a given data reference.
+
+=head2 filters
+
+    filters => {
+      custom_filter => sub {
+        my ($template, $data, @args) = @_;
+        # Do something with the $data, possible using @args
+        # to control what that does
+        return $data;
+      },
+    },
+
+A hashref of information that is passed directly to L<Template::Pure> to be used as data
+filters.  See L<Template::Pure/Filters>.
+
+=head2 pure_class
+
+The class used to create an instance of L<Template::Pure>.  Defaults to 'Template::Pure'.
+You can change this if you create a custom subclass of L<Template::Pure> to use as your
+default template.
 
 =head1 ALSO SEE
 
