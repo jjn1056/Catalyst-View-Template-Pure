@@ -86,13 +86,16 @@ use Mojo::DOM58;
 ok my $res = request '/story';
 ok my $dom = Mojo::DOM58->new($res->content);
 
-warn $res->content;
+#warn $res->content;
 
 is $dom->at('title')->content, 'A Dark and Stormy Night...';
 is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
 ok $dom->at('.timestamp')->content;
 ok $dom->at('head style')->content;
 ok $dom->at('head script')->content;
+ok $dom->find('.timestamp')->[0]->content;
+ok $dom->find('.timestamp')->[1]->content;
+is $dom->find('.timestamp')->[1]->attr('format'), 'fffffffff';
 
 done_testing;
 
