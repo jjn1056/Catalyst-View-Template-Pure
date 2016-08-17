@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.002   17 August 2016
+        - Fixed POD
+
 0.001   17 August 2016
         - First usable version, with caveats (its still early access)
 

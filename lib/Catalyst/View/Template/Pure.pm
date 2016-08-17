@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -271,7 +271,7 @@ sub headers {
 }
 1;
 
-=head1 TITLE
+=head1 NAME
 
 Catalyst::View::Template::Pure - Catalyst view adaptor for Template::Pure
 
