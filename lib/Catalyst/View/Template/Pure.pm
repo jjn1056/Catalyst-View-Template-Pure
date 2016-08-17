@@ -9,6 +9,8 @@ use Catalyst::Utils;
 use HTTP::Status ();
 use File::Spec;
 use Mojo::DOM58;
+use Template::Pure::ParseUtils;
+use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
@@ -124,29 +126,47 @@ sub ACCEPT_CONTEXT {
       ## TODO Could we not optimize by building this just once per application
       ## scope?
 
+      my $view = ref($self)->new(
+        %{$args},
+        %{$c->stash},
+        ctx => $c,
+      );
+
+      my $cb = sub {
+        my $v = shift;
+        return sub {
+        }
+      };
+
+      my %components = (
+        map {
+          my $v = $_;
+          my $key = lc($v);
+          $key =~s/::/-/g;
+          $key => sub {
+            my ($pure, %params) = @_;
+            my $data = Template::Pure::DataContext->new($view);
+            foreach $key (%{$params{node}->attr ||+{}}) {
+              next unless $params{$key};
+              next unless my $proto = ($params{$key} =~m/^\$(.+)$/)[0];
+              my %spec = Template::Pure::ParseUtils::parse_data_spec($proto);
+              $params{$key} = $data->at(%spec)->value;
+            }
+            return $c->view($v, %params);
+          }
+        } ($c->views),
+      );
+
       my $pure = $pure_class->new(
         template => $template,
         directives => $directives,
         filters => $filters,
-        components => +{
-          map {
-            my $v = $_;
-            my $key = lc($v);
-            $key =~s/::/-/g;
-            $key => sub {
-            my ($pure, %params) = @_;
-            return $c->view($v, %params);
-          } } ($c->views)
-        },
+        components => \%components,
         %$args,
       );
-      
-      return ref($self)->new(
-        %{$args},
-        %{$c->stash},
-        ctx => $c,
-        pure => $pure,
-      );
+
+      $view->{pure} = $pure;
+      return $view;
     };
     return $c->stash->{"__Pure_${key}"};
   } else {
@@ -971,6 +991,77 @@ and passing the information into the view.
       my $self = shift;
       $self->ctx->view('Include');
     }
+
+=head1 COMPONENTS
+
+B<WARNING> Components are the most experimental aspect of L<Template::Pure>!
+
+Example Component View Class:
+
+    package  MyApp::View::Timestamp;
+
+    use Moose;
+    use DateTime;
+
+    extends 'Catalyst::View::Template::Pure';
+
+    has 'tz' => (is=>'ro', predicate=>'has_tz');
+
+    sub time {
+      my ($self) = @_;
+      my $now = DateTime->now();
+      $now->set_time_zone($self->tz)
+        if $self->has_tz;
+      return $now;
+    }
+
+    __PACKAGE__->config(
+      pure_class => 'Template::Pure::Component',
+      auto_template_src => 1,
+      directives => [
+        '.timestamp' => 'time',
+      ],
+    );
+    __PACKAGE__->meta->make_immutable;
+
+And the associated template:
+
+    <pure-component>
+      <style>
+        .timestamp {
+          background:blue;
+        }
+      </style>
+      <script>
+        function alertit() {
+          alert(1);
+        }
+      </script>
+      <span class='timestamp' onclick='alertit()'>time</span>
+    </pure-component>
+
+Usage in a view:
+
+    <html lang="en">
+      <head>
+        <title>Title Goes Here</title>
+      </head>
+      <body>
+        <div id="main">Content goes here!</div>
+        <pure-timestamp tz='America/Chicago' />
+      </body>
+    </html>
+
+A component is very similar to an include or even a wrapper that you might
+insert with a processing instruction or via one of the other standard methods
+as decribed in L<Template::Pure>.  The main difference is that components can
+bundle a style and scripting component, and components are aware of themselves
+in a hierarchy (for example if a component wraps other components, those inner
+components have the outer one as a 'parent'.
+
+Given the experimental nature of this feature, I'm going to leave it underdocumented
+and let you look at the source and tests for now.  I'll add more when the shape of
+this feature is more apparent after usage.
 
 =head1 RUNTIME HOOKS
 

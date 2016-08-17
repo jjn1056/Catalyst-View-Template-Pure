@@ -9,6 +9,7 @@ use Test::Most;
 
     extends 'Catalyst::View::Template::Pure';
 
+    has 'format' => (is=>'ro', predicate=>'has_format');
     has 'tz' => (is=>'ro', predicate=>'has_tz');
 
     sub time {
@@ -24,6 +25,7 @@ use Test::Most;
       auto_template_src => 1,
       directives => [
         '.timestamp' => 'time',
+        '.timestamp@format' => 'format',
       ],
     );
     __PACKAGE__->meta->make_immutable;
@@ -35,6 +37,8 @@ use Test::Most;
     extends 'Catalyst::View::Template::Pure';
 
     has [qw/title body/] => (is=>'ro', required=>1);
+    
+    sub settings { return +{ format => 'fffffffff' } }
 
     __PACKAGE__->config(
       returns_status => [200],
