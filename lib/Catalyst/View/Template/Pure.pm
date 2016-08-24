@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -166,7 +166,7 @@ sub ACCEPT_CONTEXT {
       );
 
       $view->{pure} = $pure;
-      return $view;
+      $view;
     };
     return $c->stash->{"__Pure_${key}"};
   } else {

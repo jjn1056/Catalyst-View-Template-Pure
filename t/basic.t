@@ -69,6 +69,9 @@ use Test::Most;
         title => 'A Dark and Stormy Night...',
         body => 'It was a dark and stormy night. Suddenly...',
       )->http_ok;
+
+      Test::Most::is "${\$c->view('Story')}", "${\$c->view('Story')}",
+        'make sure the view is per request not factory';
     }
 
     __PACKAGE__->meta->make_immutable;
