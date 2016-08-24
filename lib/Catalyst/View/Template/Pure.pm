@@ -121,7 +121,14 @@ sub ACCEPT_CONTEXT {
   my $key = blessed($self) ? refaddr($self) : $self;
 
   if(blessed $c) {
-    $c->stash->{"__Pure_${key}"} ||= do {
+
+    my $stash_key = "__Pure_${key}";
+
+    if(my $clear = delete($args{clear_stash})) {
+      delete $c->stash->{$stash_key};
+    }
+
+    $c->stash->{$stash_key} ||= do {
 
       ## TODO Could we not optimize by building this just once per application
       ## scope?
@@ -132,46 +139,47 @@ sub ACCEPT_CONTEXT {
         ctx => $c,
       );
 
-      my $cb = sub {
-        my $v = shift;
-        return sub {
-        }
-      };
-
-      my %components = (
-        map {
-          my $v = $_;
-          my $key = lc($v);
-          $key =~s/::/-/g;
-          $key => sub {
-            my ($pure, %params) = @_;
-            my $data = Template::Pure::DataContext->new($view);
-            foreach $key (%{$params{node}->attr ||+{}}) {
-              next unless $params{$key};
-              next unless my $proto = ($params{$key} =~m/^\$(.+)$/)[0];
-              my %spec = Template::Pure::ParseUtils::parse_data_spec($proto);
-              $params{$key} = $data->at(%spec)->value;
-            }
-            return $c->view($v, %params);
-          }
-        } ($c->views),
-      );
-
       my $pure = $pure_class->new(
         template => $template,
         directives => $directives,
         filters => $filters,
-        components => \%components,
+        components => $self->build_comp_hash($c, $view),
         %$args,
       );
 
       $view->{pure} = $pure;
       $view;
     };
-    return $c->stash->{"__Pure_${key}"};
+    return $c->stash->{$stash_key};
   } else {
     die "Can't make this class without a context";
   }
+}
+
+sub build_comp_hash {
+  my ($self, $c, $view) = @_;
+  return $self->{__components} if $self->{__components};
+  my %components = (
+    map {
+      my $v = $_;
+      my $key = lc($v);
+      $key =~s/::/-/g;
+      $key => sub {
+        my ($pure, %params) = @_;
+        my $data = Template::Pure::DataContext->new($view);
+        foreach $key (%{$params{node}->attr ||+{}}) {
+          next unless $key && $params{$key};
+          next unless my $proto = ($params{$key} =~m/^\$(.+)$/)[0];
+          my %spec = Template::Pure::ParseUtils::parse_data_spec($proto);
+          $params{$key} = $data->at(%spec)->value;
+        }
+
+        return $c->view($v, %params, clear_stash=>1);
+      }
+    } ($c->views),
+  );
+  $self->{__components} = \%components;
+  return \%components;
 }
 
 sub apply {
