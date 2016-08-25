@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -299,7 +299,6 @@ Catalyst::View::Template::Pure - Catalyst view adaptor for Template::Pure
     __PACKAGE__->config(
       timestamp => scalar(localtime),
       returns_status => [HTTP_OK],
-      init_time => scalar(localtime),
       template => q[
         <!doctype html>
         <html lang="en">

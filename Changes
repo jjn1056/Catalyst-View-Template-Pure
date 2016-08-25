@@ -1,5 +1,9 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.004   25 August 2016
+        - Update dependencies
+        - POD fixes
+
 0.003   24 August 2016
         - Fixed bug that cause the view to be regenerated on every call instead
           of once per context.
