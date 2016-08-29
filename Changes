@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.005   28 August 2016
+        - Update version of Template::Pure to close known bugs
+
 0.004   25 August 2016
         - Update dependencies
         - POD fixes
