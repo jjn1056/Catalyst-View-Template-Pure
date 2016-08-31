@@ -1,5 +1,13 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.006   31 August 2016
+        - Update version of Template::Pure to close known bugs
+        - use weaken in a few places to solve circular references
+        - pass the view object to the pure object so that we can use it in
+          pure callbacks.
+        - Start on new ::Helpers package with first Helper 'Uri' for generating
+          correct URIs.
+
 0.005   28 August 2016
         - Update version of Template::Pure to close known bugs
 

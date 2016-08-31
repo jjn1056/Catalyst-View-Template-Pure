@@ -4,7 +4,7 @@ use warnings;
 package Catalyst::View::Template::Pure;
 
 use Catalyst::View::Template::Pure::Response;
-use Scalar::Util qw/blessed refaddr/;
+use Scalar::Util qw/blessed refaddr weaken/;
 use Catalyst::Utils;
 use HTTP::Status ();
 use File::Spec;
@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.005';
+our $VERSION = '0.006';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -128,6 +128,7 @@ sub ACCEPT_CONTEXT {
       delete $c->stash->{$stash_key};
     }
 
+    weaken $c;
     $c->stash->{$stash_key} ||= do {
 
       ## TODO Could we not optimize by building this just once per application
@@ -139,11 +140,13 @@ sub ACCEPT_CONTEXT {
         ctx => $c,
       );
 
+      weaken(my $weak_view = $view);
       my $pure = $pure_class->new(
         template => $template,
         directives => $directives,
         filters => $filters,
         components => $self->build_comp_hash($c, $view),
+        view => $weak_view,
         %$args,
       );
 

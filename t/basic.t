@@ -24,9 +24,10 @@ use Test::Most;
     $INC{'MyApp/View/Story.pm'} = __FILE__;
 
     use Moose;
+    use Catalyst::View::Template::Pure::Helpers (':ALL');
     extends 'Catalyst::View::Template::Pure';
 
-    has [qw/title body/] => (is=>'ro', required=>1);
+    has [qw/title body capture arg q/] => (is=>'ro', required=>1);
 
     sub timestamp { scalar localtime }
 
@@ -42,6 +43,8 @@ use Test::Most;
           <body>
             <div id="main">Content goes here!</div>
             <div id="timestamp">Server Started on:</div>
+            <a name="hello">hello</a>
+            <a href="aaa?aa=1&bb=2">sss</a>
             <?pure-include src='Views.Include'?>
           </body>
         </html>      
@@ -50,6 +53,7 @@ use Test::Most;
         'title' => 'title',
         '#main' => 'body',
         '#timestamp+' => 'timestamp',
+        'a[name="hello"]@href' => Uri('Story.last',['={capture}'], '={arg}', {q=>'={q}',rows=>5}),
       ],
     );
 
@@ -68,10 +72,16 @@ use Test::Most;
       $c->view('Story',
         title => 'A Dark and Stormy Night...',
         body => 'It was a dark and stormy night. Suddenly...',
+        capture => 100, arg => 200, q => 'why'
       )->http_ok;
 
       Test::Most::is "${\$c->view('Story')}", "${\$c->view('Story')}",
         'make sure the view is per request not factory';
+    }
+
+    sub root :Chained(/) CaptureArgs(1) { }
+    sub last :Chained(root) Args(1) {
+      my ($self, $c, $id) = @_;
     }
 
     __PACKAGE__->meta->make_immutable;
