@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.007   31 August 2016
+        - Update Helper code
+
 0.006   31 August 2016
         - Update version of Template::Pure to close known bugs
         - use weaken in a few places to solve circular references

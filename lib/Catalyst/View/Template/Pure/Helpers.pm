@@ -45,7 +45,7 @@ sub Uri {
     };
 
     # Change any placeholders.
-    @args = map {
+    my @local_args = map {
       my $arg = $_;
       if(ref \$_ eq 'SCALAR') {
         $arg = $resolve->($arg);
@@ -57,7 +57,7 @@ sub Uri {
       $arg;
     } @args;
 
-    my $uri = $c->uri_for($action, @args);
+    my $uri = $c->uri_for($action, @local_args);
     return $pure->encoded_string("$uri"); 
   };
 }
