@@ -62,6 +62,24 @@ sub Uri {
   };
 }
 
+sub Apply {
+  my ($view_name, @args) = @_;
+  return ['.' => sub {
+    my ($pure, $dom, $data) = @_;
+    my $c = $pure->{view}{ctx};
+    return $c->view($view_name, $data, template=>$dom, clear_stash=>1, @args);
+  }];
+}
+
+sub Wrap {
+  my ($view_name, @args) = @_;
+  return ['.' => sub {
+    my ($pure, $dom, $data) = @_;
+    my $c = $pure->{view}{ctx};
+    return $c->view($view_name, $data, content=>$dom, clear_stash=>1, @args);
+  }];
+}
+
 1;
 
 =head1 NAME
@@ -126,6 +144,23 @@ keys to the current data context:
 
 To make it easier to fill data from the current request.
   
+=head2 Apply
+
+Takes a view name and optionally arguments that are passed to ->new.  Used to
+apply a view over the results of a previous one, allowing for chained views.
+
+    'ul.todo-list li' => {
+      '.<-tasks' => Apply('Summary::Task'),
+    },
+
+Useful when you wish to delegate the job of processing a section of the template
+to a different view, but you don't need a full include.
+
+=head2 Wrap
+
+Used to pass the response on a template to another template, via a 'content'
+argument. Similar to the 'wrapper' processing instruction.
+
 =head1 SEE ALSO
   
 L<Template::Pure>, L<Catalyst::View::Template::Pure>

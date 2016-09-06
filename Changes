@@ -1,5 +1,9 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.008   06 September 2016
+        - New directive helpers Wrap and Apply to allow you to delegate some directive
+          processing to another view.  Useful for code organization.
+
 0.007   31 August 2016
         - Update Helper code
 
