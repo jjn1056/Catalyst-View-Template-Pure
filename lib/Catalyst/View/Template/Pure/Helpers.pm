@@ -6,7 +6,7 @@ package Catalyst::View::Template::Pure::Helpers;
 use Exporter 'import';
 use Template::Pure::DataProxy;
 
-our @EXPORT_OK = (qw/Uri/);
+our @EXPORT_OK = (qw/Uri Apply Wrap/);
 our %EXPORT_TAGS = (All => \@EXPORT_OK, ALL => \@EXPORT_OK);
 
 sub Uri {

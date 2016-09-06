@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.008';
+our $VERSION = '0.009';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
