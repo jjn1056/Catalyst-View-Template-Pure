@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.010';
+our $VERSION = '0.011';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -76,8 +76,8 @@ sub inject_http_status_helpers {
     my $code = HTTP::Status->$helper;
     my $codename = "http_".$code;
     if(grep { $code == $_ } @{ $args->{returns_status}||[]}) {
-       eval "sub $class::$subname { return shift->response(HTTP::Status::$helper,\@_) }";
-       eval "sub $class::$codename { return shift->response(HTTP::Status::$helper,\@_) }";
+       eval "sub ${\$class}::${\$subname} { return shift->response(HTTP::Status::$helper,\@_) }";
+       eval "sub ${\$class}::${\$codename} { return shift->response(HTTP::Status::$helper,\@_) }";
     }
   }
 }

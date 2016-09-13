@@ -1,5 +1,9 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.011   13 September 2016
+        - Increased version of Template::Pure dependency
+        - Fixed warnings when there is not set status code
+
 0.010   12 September 2016
         - Changed dependency versions to fix known issues
 
