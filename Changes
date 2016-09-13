@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.010   12 September 2016
+        - Changed dependency versions to fix known issues
+
 0.009   06 September 2016
         - Fixed export bug in last release
 
