@@ -12,7 +12,16 @@ our %EXPORT_TAGS = (All => \@EXPORT_OK, ALL => \@EXPORT_OK);
 sub Uri {
   my ($path, @args) = @_;
   die "$path is not a string" unless ref \$path eq 'SCALAR';
-  my ($controller_proto, $action_proto) = ($path=~m/^(.*)\.(.+)$/); 
+
+  # What type of path?  Controller.action_name or relative action/namespace
+  my ($controller_proto, $action_proto) = ();
+  if($path=~m/^(.*)\.(.+)$/) {
+    ($controller_proto, $action_proto) = ($1,$2);
+  } else {
+    # probably namespace
+    $action_proto = $path;
+  }
+
   return sub {
     my ($pure, $dom, $data) = @_;
     my $c = $pure->{view}{ctx};
@@ -25,8 +34,17 @@ sub Uri {
       $controller = $c->controller;
     }
 
-    die "$action_proto is not an action for controller ${\$controller->component_name}"
-      unless my $action = $controller->action_for($action_proto);
+    my $action = '';
+    if($action_proto =~/\//) {
+      # proto is a relative action namespace.
+      my $path = $action_proto=~m/^\// ? $action_proto : $controller->action_for($action_proto)->private_path;
+      die "$action_proto is not an action for controller ${\$controller->component_name}" unless $path;
+      die "$path is not a private path"
+        unless $action = $c->dispatcher->get_action_by_path($path);
+    } else {
+      die "$action_proto is not an action for controller ${\$controller->component_name}"
+        unless $action = $controller->action_for($action_proto);
+    }
 
     $data = Template::Pure::DataProxy->new(
       $data,
@@ -122,14 +140,12 @@ as build URLs etc.
 
 =head2 Uri
 
-Used to generate a URL via $c->uri_for.  Takes arguements like:
+Used to generate a URL via $c->uri_for.  Takes signatures like:
 
     Uri("$controller.$action", \@captures, @args, \%query)
-
-Basically if follows $c->uri_for, except the first argument must be a string with
-the target Controller 'dot' and action.  You can use an action relative to the current
-controller by leave off the controller string (but the 'dot' in from the of the action
-is required.
+    Uri(".$action", \@captures, @args, \%query)
+    Uri("$relative_action_private_name", \@captures, @args, \%query)
+    Uri("$absolute_action_private_name", \@captures, @args, \%query)
 
 We fill placeholders in the arguments in the same was as in templates, for example:
 
@@ -142,8 +158,38 @@ keys to the current data context:
       args => $c->request->args,
       query => $c->request->query_parameters;
 
-To make it easier to fill data from the current request.
-  
+To make it easier to fill data from the current request.  For example:
+
+      Uri('last', ['={captures}'], '={args}')
+
+=over
+
+=item Uri("$controller.$action", \@captures, @args, \%query)
+
+URI for an action at a specific Controller.  '$controller' should be
+a controller namespace part, for example 'MyApp::Controller::User' would
+be 'User' and 'MyApp::Controller::User::Info' would be 'User::Info'.
+
+=item Uri(".$action", \@captures, @args, \%query)
+
+Relative version of the previous helper.  Set the controller to the
+current controller.
+
+=item Uri("$absolute_action_private_name", \@captures, @args, \%query)
+
+Creates a URI for an absolute action namespace.  Examples:
+
+    Uri('/root/user')
+
+=item Uri("$relative_action_private_name", \@captures, @args, \%query)
+
+Creates a URI for a relative (under the current controller namespace)
+action namespace. Examples:
+
+    Uri('user/info')
+
+=back
+
 =head2 Apply
 
 Takes a view name and optionally arguments that are passed to ->new.  Used to
