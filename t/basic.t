@@ -27,7 +27,7 @@ use Test::Most;
     use Catalyst::View::Template::Pure::Helpers (':ALL');
     extends 'Catalyst::View::Template::Pure';
 
-    has [qw/title body capture arg q/] => (is=>'ro', required=>1);
+    has [qw/title body capture arg q author_action/] => (is=>'ro', required=>1);
 
     sub timestamp { scalar localtime }
 
@@ -57,7 +57,9 @@ use Test::Most;
         'a[name="hello"]@href' => Uri('last',['={capture}'], '={arg}', {q=>'={q}',rows=>5}),
         #  'a[name="authors"]@href' => Uri('Story::Authors.last',['={capture}']),
         #'a[name="authors"]@href' => Uri('authors/last',['={capture}']),
-        'a[name="authors"]@href' => Uri('/story/authors/last',['={capture}']),
+        #'a[name="authors"]@href' => Uri('/story/authors/last',['={capture}']),
+        'a[name="authors"]@href' => Uri('={author_action}',['={capture}']),
+
 
       ],
     );
@@ -74,10 +76,12 @@ use Test::Most;
 
     sub display_story :Path('') Args(0) {
       my ($self, $c) = @_;
+
       $c->view('Story',
         title => 'A Dark and Stormy Night...',
         body => 'It was a dark and stormy night. Suddenly...',
-        capture => 100, arg => 200, q => 'why'
+        capture => 100, arg => 200, q => 'why',
+        author_action => $self->action_for('authors/last'),
       )->http_ok;
 
       Test::Most::is "${\$c->view('Story')}", "${\$c->view('Story')}",

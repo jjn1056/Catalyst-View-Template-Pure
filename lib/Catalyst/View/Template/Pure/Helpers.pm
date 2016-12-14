@@ -27,7 +27,7 @@ sub Uri {
     my $c = $pure->{view}{ctx};
     my $controller;
     if($controller_proto) {
-      die "$controller_proto is not a controler!" unless
+      die "$controller_proto is not a controller!" unless
         $controller = $c->controller($controller_proto);
     } else {
       # if not specified, use the current
@@ -35,7 +35,10 @@ sub Uri {
     }
 
     my $action = '';
-    if($action_proto =~/\//) {
+    if(my ($data_path) = ($action_proto=~m/^\=\{(.+)\}$/)) {
+      $action = $pure->data_at_path($data,$data_path);
+    }
+    elsif($action_proto =~/\//) {
       # proto is a relative action namespace.
       my $path = $action_proto=~m/^\// ? $action_proto : $controller->action_for($action_proto)->private_path;
       die "$action_proto is not an action for controller ${\$controller->component_name}" unless $path;
@@ -154,13 +157,24 @@ We fill placeholders in the arguments in the same was as in templates, for examp
 Would fill year, id and q from the current data context.  We also merge in the following
 keys to the current data context:
 
-      captures => $c->request->captures,
-      args => $c->request->args,
-      query => $c->request->query_parameters;
+    captures => $c->request->captures,
+    args => $c->request->args,
+    query => $c->request->query_parameters;
 
 To make it easier to fill data from the current request.  For example:
 
-      Uri('last', ['={captures}'], '={args}')
+    Uri('last', ['={captures}'], '={args}')
+
+You can also use data paths placeholders to indicate the action on which we are building
+a URI:
+
+    Uri('={delete_link}', ['={captures}'], '={args}')
+
+In this case the placeholder should refer to a L<Catalyst::Action> object, not a string:
+
+    $c->view('List', delete_link => $self->action_for('item/delete'));
+
+This may change in a future version.
 
 =over
 

@@ -1,5 +1,9 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.013   14 December 2016
+        - URI Helper can now reference it's target action via a path path
+          instead of requiring you to hard code it into the template.
+
 0.012   16 November 2016
         - More flexible Uri helper (with docs) and a few test cases.
 
