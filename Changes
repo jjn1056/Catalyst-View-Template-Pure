@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.014   21 December 2016
+        - Apply and Wrap helper will unwrap hashref data
+        
 0.013   14 December 2016
         - URI Helper can now reference it's target action via a path path
           instead of requiring you to hard code it into the template.

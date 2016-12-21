@@ -14,7 +14,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.013';
+our $VERSION = '0.014';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -90,8 +90,12 @@ sub ACCEPT_CONTEXT {
     my $proto = shift @args;
     # TODO This needs to enforce the duck type
     foreach my $field (@fields) {
-      if(my $cb = $proto->can($field)) {
-        $args{$field} = $proto->$field;
+      if(ref $proto eq 'HASH') {
+        $args{$field} = $proto->{$field} if exists $proto->{$field};
+      } else {
+        if(my $cb = $proto->can($field)) {
+          $args{$field} = $proto->$field;
+        }
       }
     }
   }
