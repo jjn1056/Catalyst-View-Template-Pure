@@ -3,7 +3,6 @@ use warnings;
 
 package Catalyst::View::Template::Pure;
 
-use Catalyst::View::Template::Pure::Response;
 use Scalar::Util qw/blessed refaddr weaken/;
 use Catalyst::Utils;
 use HTTP::Status ();
@@ -14,7 +13,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.014';
+our $VERSION = '0.015';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -220,13 +219,10 @@ sub response {
   $res->content_type('text/html') unless $res->content_type;
   my $body = $res->body($self->render);
 
-  my $response = bless +{
-    ctx => $self->{ctx},
-    content => $body,
-  }, 'Catalyst::View::Template::Pure::Response';
-
-  return $response;
+  return $self;
 }
+
+sub detach { shift->{ctx}->detach }
 
 sub render {
   my ($self, $data) = @_;

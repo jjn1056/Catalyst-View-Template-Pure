@@ -85,20 +85,20 @@ sub Uri {
 
 sub Apply {
   my ($view_name, @args) = @_;
-  return ['.' => sub {
+  return sub {
     my ($pure, $dom, $data) = @_;
     my $c = $pure->{view}{ctx};
     return $c->view($view_name, $data, template=>$dom, clear_stash=>1, @args);
-  }];
+  };
 }
 
 sub Wrap {
   my ($view_name, @args) = @_;
-  return ['.' => sub {
+  return sub {
     my ($pure, $dom, $data) = @_;
     my $c = $pure->{view}{ctx};
     return $c->view($view_name, $data, content=>$dom, clear_stash=>1, @args);
-  }];
+  };
 }
 
 1;

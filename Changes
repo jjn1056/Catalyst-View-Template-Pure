@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.015   21 December 2016
+        - Helpers shouldn't override selection scope
+
 0.014   21 December 2016
         - Apply and Wrap helper will unwrap hashref data
         
