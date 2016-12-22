@@ -13,7 +13,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.016';
+our $VERSION = '0.017';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -83,83 +83,69 @@ sub inject_http_status_helpers {
 
 sub ACCEPT_CONTEXT {
   my ($self, $c, @args) = @_;
+  die "Can't call in Application context" unless blessed $c;
 
-  my %args = ();
-  if(scalar(@args) % 2) {
-    my $proto = shift @args;
-    # TODO This needs to enforce the duck type
-    foreach my $field (@fields) {
-      if(ref $proto eq 'HASH') {
-        $args{$field} = $proto->{$field} if exists $proto->{$field};
-      } else {
-        if(my $cb = $proto->can($field)) {
-          $args{$field} = $proto->$field;
+  my $proto = (scalar(@args) % 2) ? shift(@args) : undef;
+  my %args = @args;
+
+  my $key = blessed($self) ? refaddr($self) : $self;
+  my $stash_key = "__Pure_${key}";
+  delete $c->stash->{$stash_key} if delete($args{clear_stash});
+
+  weaken $c;
+  $c->stash->{$stash_key} ||= do {
+
+    if($proto) {
+      foreach my $field (@fields) {
+        if(ref $proto eq 'HASH') {
+          $args{$field} = $proto->{$field} if exists $proto->{$field};
+        } else {
+          if(my $cb = $proto->can($field)) {
+            $args{$field} = $proto->$field;
+          }
         }
       }
     }
-  }
 
-  %args = (%args, @args);
-  my $args = $self->merge_config_hashes($self->config, \%args);
-  $args = $self->modify_context_args($c, $args) if $self->can('modify_context_args');
-  $self->handle_request($c, %$args) if $self->can('handle_request');
+    my $args = $self->merge_config_hashes($self->config, \%args);
+    $args = $self->modify_context_args($c, $args) if $self->can('modify_context_args');
+    $self->handle_request($c, %$args) if $self->can('handle_request');
 
-  my $template;
-  if(exists($args->{template})) {
-    $template = delete ($args->{template});
-  } elsif(exists($args->{template_src})) {
-    $template = (delete $args->{template_src})->slurp;
-  } else {
-    die "Can't find a template for your View";
-  }
-
-  my $directives = delete $args->{directives};
-  my $filters = delete $args->{filters};
-  my $pure_class = exists($args->{pure_class}) ?
-    delete($args->{pure_class}) :
-    'Template::Pure';
-
-  Catalyst::Utils::ensure_class_loaded($pure_class);
-
-  my $key = blessed($self) ? refaddr($self) : $self;
-
-  if(blessed $c) {
-
-    my $stash_key = "__Pure_${key}";
-
-    if(my $clear = delete($args{clear_stash})) {
-      delete $c->stash->{$stash_key};
+    my $template;
+    if(exists($args->{template})) {
+      $template = delete ($args->{template});
+    } elsif(exists($args->{template_src})) {
+      $template = (delete $args->{template_src})->slurp;
     }
 
-    weaken $c;
-    $c->stash->{$stash_key} ||= do {
+    my $directives = delete $args->{directives};
+    my $filters = delete $args->{filters};
+    my $pure_class = exists($args->{pure_class}) ?
+      delete($args->{pure_class}) :
+      'Template::Pure';
 
-      ## TODO Could we not optimize by building this just once per application
-      ## scope?
+    Catalyst::Utils::ensure_class_loaded($pure_class);
 
-      my $view = ref($self)->new(
-        %{$args},
-        %{$c->stash},
-        ctx => $c,
-      );
+    my $view = ref($self)->new(
+      %{$args},
+      %{$c->stash},
+      ctx => $c,
+    );
 
-      weaken(my $weak_view = $view);
-      my $pure = $pure_class->new(
-        template => $template,
-        directives => $directives,
-        filters => $filters,
-        components => $self->build_comp_hash($c, $view),
-        view => $weak_view,
-        %$args,
-      );
+    weaken(my $weak_view = $view);
+    my $pure = $pure_class->new(
+      template => $template,
+      directives => $directives,
+      filters => $filters,
+      components => $self->build_comp_hash($c, $view),
+      view => $weak_view,
+      %$args,
+    );
 
-      $view->{pure} = $pure;
-      $view;
-    };
-    return $c->stash->{$stash_key};
-  } else {
-    die "Can't make this class without a context";
-  }
+    $view->{pure} = $pure;
+    $view;
+  };
+  return $c->stash->{$stash_key};
 }
 
 sub build_comp_hash {
