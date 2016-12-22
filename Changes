@@ -1,5 +1,8 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
+0.016   22 Decemner 2016
+        - Increase dependency versions to close known bugs
+
 0.015   21 December 2016
         - Helpers shouldn't override selection scope
 
