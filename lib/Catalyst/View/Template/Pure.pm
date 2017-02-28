@@ -13,7 +13,7 @@ use Template::Pure::DataContext;
 
 use base 'Catalyst::View';
 
-our $VERSION = '0.017';
+our $VERSION = '0.018';
 
 sub COMPONENT {
   my ($class, $app, $args) = @_;
@@ -118,7 +118,6 @@ sub ACCEPT_CONTEXT {
       $template = (delete $args->{template_src})->slurp;
     }
 
-    my $directives = delete $args->{directives};
     my $filters = delete $args->{filters};
     my $pure_class = exists($args->{pure_class}) ?
       delete($args->{pure_class}) :
@@ -131,6 +130,15 @@ sub ACCEPT_CONTEXT {
       %{$c->stash},
       ctx => $c,
     );
+
+    my $directives = delete $args->{directives};
+    if($view->can('directives')) {
+      my @new_directives = $view->directives;
+      $directives = [
+        @new_directives,
+        @{ $directives || [] }];
+    }
+
 
     weaken(my $weak_view = $view);
     my $pure = $pure_class->new(

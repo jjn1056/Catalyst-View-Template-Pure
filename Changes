@@ -1,6 +1,11 @@
 The following logs changes for the CPAN distribution Catalyst::View::Template::Pure
 
-0.016   22 December 2016
+0.018   28 Febuary 2017
+        - directives method
+        - increase dependecies
+        - sorry docs need major redo
+
+0.017   22 December 2016
         - A few optimizations
 
 0.016   22 December 2016

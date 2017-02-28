@@ -1,6 +1,60 @@
 use Test::Most;
 
 {
+    package  MyApp::View::Directives;
+    $INC{'MyApp/View/Directives.pm'} = __FILE__;
+
+    use Moose;
+    extends 'Catalyst::View::Template::Pure';
+
+    has [qw/body title names/] => (is=>'ro', required=>1);
+
+    sub directives {
+      my $self = shift;
+      'title' => 'title',
+      '#main' => 'body',
+      '#names' => 'populate_names';
+    }
+
+    sub populate_names {
+      my $self = shift;
+      'li' => +{ 'name<-names' => 'name' };
+    }
+
+    # Insert stuff
+    # Wrap a match
+    sub add_sidebar {
+      my ($self, $message) = @_;
+      push @{$self->{pure}->{directives}},
+        '+body' => sub {
+          use Template::Pure;
+          shift->encoded_string(Template::Pure->new(
+            template => '<p>sidebar</p>',
+            directives => [ p=>'message' ])
+          ->render({ message=>$message}));
+            
+        },
+    }
+
+    __PACKAGE__->config(
+      returns_status => [200],
+      template => q[
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <title>Title Goes Here</title>
+          </head>
+          <body>
+            <div id="main">Content goes here!</div>
+            <ul id="names">
+              <li>Name</li>
+            </ul>
+          </body>
+        </html>      
+      ]);
+    
+    MyApp::View::Directives->meta->make_immutable;
+    
     package  MyApp::View::Include;
     $INC{'MyApp/View/Include.pm'} = __FILE__;
 
@@ -18,7 +72,7 @@ use Test::Most;
       ],
     );
 
-    __PACKAGE__->meta->make_immutable;
+    MyApp::View::Include->meta->make_immutable;
 
     package  MyApp::View::Story;
     $INC{'MyApp/View/Story.pm'} = __FILE__;
@@ -64,7 +118,7 @@ use Test::Most;
       ],
     );
 
-    __PACKAGE__->meta->make_immutable;
+    MyApp::View::Story->meta->make_immutable;
 
     package MyApp::Controller::Story;
     $INC{'MyApp/Controller/Story.pm'} = __FILE__;
@@ -88,12 +142,25 @@ use Test::Most;
         'make sure the view is per request not factory';
     }
 
+    sub directives :Path(/directives) {
+      my ($self, $c) = @_;
+      my $v = $c->view('Directives',
+        title => 'subsub',
+        body => 'hello body!',
+        names => [ qw/aaa bbb ccc/ ],
+      );
+      
+      $v->add_sidebar('hello');
+
+      return $v->http_ok;
+    }
+
     sub root :Chained(/) CaptureArgs(1) { }
     sub last :Chained(root) Args(1) {
       my ($self, $c, $id) = @_;
     }
 
-    __PACKAGE__->meta->make_immutable;
+    MyApp::Controller::Story->meta->make_immutable;
 
     package MyApp::Controller::Story::Authors;
     $INC{'MyApp/Controller/Story/Authors.pm'} = __FILE__;
@@ -108,8 +175,7 @@ use Test::Most;
       my ($self, $c, $id) = @_;
     }
 
-
-    __PACKAGE__->meta->make_immutable;
+    MyApp::Controller::Story::Authors->meta->make_immutable;
 
     package MyApp;
     $INC{'MyApp.pm'} = __FILE__;
@@ -122,14 +188,28 @@ use Test::Most;
 use Catalyst::Test 'MyApp';
 use Mojo::DOM58;
 
-ok my $res = request '/story';
-ok my $dom = Mojo::DOM58->new($res->content);
+{
+  ok my $res = request '/story';
+  ok my $dom = Mojo::DOM58->new($res->content);
 
-#warn $res->content;
 
-is $dom->at('title')->content, 'A Dark and Stormy Night...';
-is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
-like $dom->at('#timestamp')->content, qr/Server Started on:.+$/;
+  is $dom->at('title')->content, 'A Dark and Stormy Night...';
+  is $dom->at('#main')->content, 'It was a dark and stormy night. Suddenly...';
+  like $dom->at('#timestamp')->content, qr/Server Started on:.+$/;
+}
+
+{
+  ok my $res = request '/directives';
+  ok my $dom = Mojo::DOM58->new($res->content);
+
+  warn $res->content;
+
+  is $dom->at('title')->content, 'subsub';
+  is $dom->at('#main')->content, 'hello body!';
+  is $dom->at('p')->content, 'hello';
+  is $dom->find('#names li')->[0]->content, 'aaa';
+  is $dom->find('#names li')->[1]->content, 'bbb';
+  is $dom->find('#names li')->[2]->content, 'ccc';
+}
 
 done_testing;
-
