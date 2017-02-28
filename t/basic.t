@@ -202,8 +202,6 @@ use Mojo::DOM58;
   ok my $res = request '/directives';
   ok my $dom = Mojo::DOM58->new($res->content);
 
-  warn $res->content;
-
   is $dom->at('title')->content, 'subsub';
   is $dom->at('#main')->content, 'hello body!';
   is $dom->at('p')->content, 'hello';
